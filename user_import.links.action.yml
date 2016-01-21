@@ -1,0 +1,5 @@
+user_import_admin_upload:
+  route_name: user_import.admin_upload
+  title: 'Import users'
+  appears_on:
+    - entity.user.collection

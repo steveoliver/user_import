@@ -1,0 +1,8 @@
+
+user_import.admin_upload:
+  path: '/admin/people/import'
+  defaults:
+    _controller: '\Drupal\user_import\Controller\UserImportController::importPage'
+    _title: 'Import users'
+  requirements:
+    _permission: 'administer users'

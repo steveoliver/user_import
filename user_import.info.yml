@@ -1,0 +1,7 @@
+name: User Import
+description: Import users into Drupal from CSV file upload
+core: 8.x
+type: module
+
+dependencies:
+  - user
