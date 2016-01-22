@@ -7,7 +7,6 @@
 
 namespace Drupal\user_import\Form;
 
-use Drupal\Core\Form\ConfigFormBase;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormInterface;
 use Drupal\Core\Form\FormStateInterface;
@@ -81,7 +80,7 @@ class UserImportForm extends FormBase {
   /**
    * {@inheritdoc}
    */
-  public function validateForm(array &$form, formstateinterface $form_state) {
+  public function validateForm(array &$form, FormStateInterface $form_state) {
     // Validate options.
     $roles = $form_state->getValue(['config', 'roles']);
     $roles_selected = array_filter($roles, function($item) {
@@ -100,7 +99,7 @@ class UserImportForm extends FormBase {
   /**
    * {@inheritdoc}
    */
-  public function submitForm(array &$form, formstateinterface $form_state) {
+  public function submitForm(array &$form, FormStateInterface $form_state) {
     $file = $this->file[0];
     $roles = $form_state->getValue(['config', 'roles']);
     $config = [
