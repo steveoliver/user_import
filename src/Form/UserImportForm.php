@@ -108,8 +108,12 @@ class UserImportForm extends FormBase {
       })
     ];
     if ($created = UserImportController::processUpload($file, $config)) {
-      $form_state->setRedirectUrl(new Url('user_import.admin_upload'));
+      drupal_set_message(t('Successfully imported @count users.', ['@count' => count($created)]));
     }
+    else {
+      drupal_set_message(t('No users imported.'));
+    }
+    $form_state->setRedirectUrl(new Url('user_import.admin_upload'));
   }
 
 }
