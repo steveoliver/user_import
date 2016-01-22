@@ -7,10 +7,8 @@
 namespace Drupal\user_import\Controller;
 
 use \Drupal\user\Entity\User;
-use \Drupal\Core\Logger\RfcLogLevel;
-use \Drupal\Core\Session\AccountInterface;
+use \Drupal\file\Entity\File;
 use \Drupal\Core\Entity\EntityStorageException;
-use Symfony\Component\EventDispatcher\Tests\AbstractEventDispatcherTest;
 
 class UserImportController {
 
@@ -27,13 +25,12 @@ class UserImportController {
    *
    * @param array $config
    *   An array of configuration containing:
-   *   - map: an array of row names indexed by required user properties
    *   - roles: an array of role ids to assign to the user
    *
    * @return array
    *   An associative array of values from the filename keyed by new uid.
    */
-  public static function processUpload(\Drupal\file\Entity\File $file, array $config) {
+  public static function processUpload(File $file, array $config) {
     $handle = fopen($file->destination, 'r');
     $created = [];
     while ($row = fgetcsv($handle)) {
@@ -55,7 +52,6 @@ class UserImportController {
    *
    * @param $config
    *   An array of configuration containing:
-   *   - map: an array of row names indexed by required user properties
    *   - roles: an array of role ids to assign to the user
    *
    * @return array
@@ -64,7 +60,7 @@ class UserImportController {
   public static function prepareRow(array $row, array $config) {
     $preferred_username = (strtolower($row[0] . $row[1]));
     $i = 0;
-    while (static::usernameExists($i ? $preferred_username . $i : $preferred_username)) {
+    while (self::usernameExists($i ? $preferred_username . $i : $preferred_username)) {
       $i++;
     }
     $username = $i ? $preferred_username . $i : $preferred_username;
@@ -81,7 +77,16 @@ class UserImportController {
     ];
   }
 
-  function usernameExists($username) {
+  /**
+   * Returns user whose name matches $username.
+   *
+   * @param string $username
+   *   Username to check.
+   *
+   * @return array
+   *   Users whose names match username.
+   */
+  private static function usernameExists($username) {
     return \Drupal::entityQuery('user')->condition('name', $username)->execute();
   }
 
