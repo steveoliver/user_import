@@ -1,0 +1,14 @@
+{
+  "name": "drupal/user_import",
+  "type": "drupal-module",
+  "description": "User import module",
+  "keywords": ["Drupal"],
+  "license": "GPL-2.0+",
+  "homepage": "https://github.com/steveoliver/user_import",
+  "minimum-stability": "dev",
+  "support": {
+    "issues": "https://github.com/steveoliver/user_import/issues",
+    "source": "https://github.com/steveoliver/user_import"
+  },
+  "require": { }
+}
