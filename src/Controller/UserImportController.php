@@ -12,6 +12,12 @@ use \Drupal\Core\Entity\EntityStorageException;
 
 class UserImportController {
 
+  /**
+   * Page callback.
+   *
+   * @return array
+   *   The user import form.
+   */
   public static function importPage() {
     $form = \Drupal::formBuilder()->getForm('Drupal\user_import\Form\UserImportForm');
     return $form;
@@ -32,11 +38,67 @@ class UserImportController {
    */
   public static function processUpload(File $file, array $config) {
     $handle = fopen($file->destination, 'r');
-    $created = [];
+    $added = [];
     while ($row = fgetcsv($handle)) {
-      if ($values = self::prepareRow($row, $config)) {
-        if ($uid = self::createUser($values)) {
-          $created[$uid] = $values;
+      if ($values = self::prepareUploadRow($row, $config)) {
+        if ($id = self::addUserToWaitlist($values)) {
+          $added[$id] = $values;
+        }
+      }
+    }
+
+    return $added;
+  }
+
+  /**
+   * Adds a user import entry to the waitlist table.
+   *
+   * @param array $user
+   *
+   * @return $this|bool
+   */
+  private function addUserToWaitlist($user) {
+    $connection = \Drupal::database();
+    if ($id = $connection->insert('user_import_waitlist')
+    ->fields([
+      'first',
+      'last',
+      'email',
+      'date',
+      'roles'
+    ], [
+      $user['first'],
+      $user['last'],
+      $user['email'],
+      $user['date'],
+      implode(',', $user['roles'])
+    ])->execute()) {
+      return $id;
+    }
+    return FALSE;
+  }
+
+  /**
+   * Processes today's waitlist.
+   *
+   * @return array
+   *   An associative array of users created from today's waitlist:
+   *     - success: A sub-array of entries successfully created.
+   *     - error: A sub-array of entries not successfully created.
+   */
+  public static function processTodaysWaitList() {
+    $created = [
+      'success' => [],
+      'error' => []
+    ];
+    if ($waitlist = self::getTodaysWaitlist()) {
+      foreach ($waitlist as $entry) {
+        if ($uid = self::createUser($entry)) {
+          $created['success'][] = $entry;
+          self::removeUserFromWaitList($entry);
+        }
+        else {
+          $created['error'][] = $entry;
         }
       }
     }
@@ -45,7 +107,49 @@ class UserImportController {
   }
 
   /**
-   * Prepares a new user from an upload row and current config.
+   * Removes a user from the waitlist.
+   *
+   * @param array $entry
+   *   An entry from ::getTodaysWaitList() whose 'email' property
+   *   is used to find the waitlist entry to delete.
+   *
+   * @return bool|int
+   *   ID of the record deleted, or FALSE in case of an error.
+   */
+  private static function removeUserFromWaitList($entry) {
+    $connection = \Drupal::database();
+    if ($id = $connection->delete('user_import_waitlist')
+    ->condition('email', $entry['email'])
+    ->execute()) {
+      return $id;
+    }
+    return FALSE;
+  }
+
+  /**
+   * Gets today's waitlist of users to activate.
+   *
+   * @return array
+   *   All rows in the {user_import_waitlist} table with today's date.
+   */
+  private static function getTodaysWaitList() {
+    $waitlist = [];
+    $today = new \DateTime();
+    $connection = \Drupal::database();
+    $query = $connection->select('user_import_waitlist', 'uiw')
+      ->fields('uiw')
+      ->condition('date', $today->format('Y-m-d'));
+    $result = $query->execute();
+    while ($entry = $result->fetchAssoc()) {
+      $entry['roles'] = explode(',', $entry['roles']);
+      $waitlist[] = $entry;
+    }
+
+    return $waitlist;
+  }
+
+  /**
+   * Prepares a new user import entry from an upload row and current config.
    *
    * @param $row
    *   A row from the currently uploaded file.
@@ -55,24 +159,14 @@ class UserImportController {
    *   - roles: an array of role ids to assign to the user
    *
    * @return array
-   *   New user values suitable for User::create().
+   *   User import values suitable for self::addUserToWaitList().
    */
-  public static function prepareRow(array $row, array $config) {
-    $preferred_username = (strtolower($row[0] . $row[1]));
-    $i = 0;
-    while (self::usernameExists($i ? $preferred_username . $i : $preferred_username)) {
-      $i++;
-    }
-    $username = $i ? $preferred_username . $i : $preferred_username;
+  public static function prepareUploadRow(array $row, array $config) {
     return [
-      'uid' => NULL,
-      'name' => $username,
-      'field_name_first' => $row[0],
-      'field_name_last' => $row[1],
-      'pass' => NULL,
-      'mail' => $row[2],
-      'status' => 1,
-      'created' => REQUEST_TIME,
+      'first' => $row[0],
+      'last' => $row[1],
+      'email' => $row[2],
+      'date' => $row[3],
       'roles' => array_values($config['roles']),
     ];
   }
@@ -91,6 +185,32 @@ class UserImportController {
   }
 
   /**
+   * Prepares an array of new user values from a user waitlist entry.
+   *
+   * @param array $user
+   *   An entry from the waitlist database table.
+   *
+   * @return array
+   *   An array of user values suitable for User::save().
+   */
+  private static function prepareNewUser($user) {
+    $preferred_username = strtolower($user['first'] . $user['last']);
+    $i = 0;
+    while (self::usernameExists($i ? $preferred_username . $i : $preferred_username)) {
+      $i++;
+    }
+    $username = $i ? $preferred_username . $i : $preferred_username;
+    $user['name'] = $username;
+    $user['mail'] = $user['email'];
+    $user['field_name_first'] = $user['first'];
+    $user['field_name_last'] = $user['last'];
+    $user['field_barre_member_training_date'] = $user['date'];
+    $user['status'] = 1;
+
+    return $user;
+  }
+
+  /**
    * Creates a new user from prepared values.
    *
    * @param $values
@@ -99,7 +219,8 @@ class UserImportController {
    * @return \Drupal\user\Entity\User
    *
    */
-  private function createUser($values) {
+  private static function createUser($values) {
+    $values = self::prepareNewUser($values);
     $user = User::create($values);
     try {
       if ($user->save()) {
@@ -112,7 +233,7 @@ class UserImportController {
         '%fname' => $values['field_name_first'],
         '%lname' => $values['field_name_last'],
         '%uname' => $values['name'],
-        '%email' => $values['mail'],
+        '%email' => $values['email'],
       ]), 'error');
     }
     return FALSE;

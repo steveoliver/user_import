@@ -1,0 +1,75 @@
+<?php
+/**
+ * @file
+ * User Import install/uninstall routines.
+ */
+
+/**
+ * Implements hook_schema().
+ *
+ * Defines the database tables used by this module.
+ *
+ * @see hook_schema()
+ * @ingroup dbtng_example
+ */
+function user_import_schema() {
+  $schema['user_import_waitlist'] = array(
+    'description' => 'Saves user import entries while waiting to be processed',
+    'fields' => array(
+      'id' => array(
+        'type' => 'serial',
+        'not null' => TRUE,
+        'description' => 'Primary Key: ID',
+      ),
+      'first' => array(
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+        'description' => "User's first name",
+      ),
+      'last' => array(
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+        'description' => "User's last name",
+      ),
+      'email' => array(
+        'type' => 'varchar',
+        'length' => 255,
+        'distinct' => TRUE,
+        'not null' => TRUE,
+        'default' => '',
+        'description' => 'Email address',
+      ),
+      'roles' => array(
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => 'Comma-separated names of roles to add to the user',
+      ),
+      'date' => array(
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => 'Date of user account creation',
+      ),
+    ),
+    'primary key' => array('id'),
+    // @todo: What to do to ensure users cannot be re-added.
+    // i.e. What to do if user is re-added?
+    // 'unique keys' => array(
+    //   'email' => array('email')
+    // ),
+    'indexes' => array(
+      'first' => array('first'),
+      'last' => array('last'),
+      'date' => array('date'),
+    ),
+  );
+
+  return $schema;
+}
