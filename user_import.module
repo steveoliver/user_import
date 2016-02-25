@@ -9,5 +9,5 @@ use Drupal\user_import\Controller\UserImportController;
  * Implements hook_cron().
  */
 function user_import_cron() {
-  UserImportController::processTodaysWaitList();
+  UserImportController::processNextWeeksWaitList();
 }

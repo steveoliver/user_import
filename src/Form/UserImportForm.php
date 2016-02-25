@@ -103,12 +103,18 @@ class UserImportForm extends FormBase {
     $file = $this->file[0];
     $roles = $form_state->getValue(['config', 'roles']);
     $config = [
-      'roles' => array_filter($roles, function($item) {
+      'roles' => array_filter($roles, function ($item) {
         return ($item);
       })
     ];
-    if ($created = UserImportController::processUpload($file, $config)) {
-      drupal_set_message(t('Successfully imported @count users.', ['@count' => count($created)]));
+    $processed = UserImportController::processUpload($file, $config);
+    if (!empty($processed['created']) || !empty($processed['added'])) {
+      if (!empty($processed['created'])) {
+        drupal_set_message(t('Successfully imported @count users.', ['@count' => count($processed['created'])]));
+      }
+      if (!empty($processed['added'])) {
+        drupal_set_message(t('Successfully waitlisted @count users to be imported.', ['@count' => count($processed['added'])]));
+      }
     }
     else {
       drupal_set_message(t('No users imported.'));

@@ -6,6 +6,8 @@
 
 namespace Drupal\user_import\Controller;
 
+use \DateTime;
+use \DateInterval;
 use \Drupal\user\Entity\User;
 use \Drupal\file\Entity\File;
 use \Drupal\Core\Entity\EntityStorageException;
@@ -34,20 +36,44 @@ class UserImportController {
    *   - roles: an array of role ids to assign to the user
    *
    * @return array
-   *   An associative array of values from the filename keyed by new uid.
+   *   An multi-dimensional associative array with 'created' and 'added' arrays
+   *   of values from the filename keyed by new uid.
    */
   public static function processUpload(File $file, array $config) {
     $handle = fopen($file->destination, 'r');
+    $today = new \DateTime();
     $added = [];
+    $created = [];
     while ($row = fgetcsv($handle)) {
       if ($values = self::prepareUploadRow($row, $config)) {
-        if ($id = self::addUserToWaitlist($values)) {
-          $added[$id] = $values;
+        if (!empty($values['date'])) {
+          // Future date? Add to waitlist.
+          $date = new \DateTime($values['date']);
+          $days_diff = (int) $today->diff($date)->format('%r%d');
+          if ($days_diff > 0) {
+            if ($id = self::addUserToWaitlist($values)) {
+              $added[$id] = $values;
+            }
+          }
+          // Today or previous date? Create user now with training date.
+          else {
+            if ($id = self::createUser($values)) {
+              $created[$id] = $values;
+            }
+          }
+        }
+        else {
+          if ($id = self::createUser($values)) {
+            $created[$id] = $values;
+          }
         }
       }
     }
 
-    return $added;
+    return [
+      'added' => $added,
+      'created' => $created
+    ];
   }
 
   /**
@@ -107,6 +133,34 @@ class UserImportController {
   }
 
   /**
+   * Processes one-week-from-today's waitlist.
+   *
+   * @return array
+   *   An associative array of users created from next week's waitlist:
+   *     - success: A sub-array of entries successfully created.
+   *     - error: A sub-array of entries not successfully created.
+   */
+  public static function processNextWeeksWaitList() {
+    $created = [
+      'success' => [],
+      'error' => []
+    ];
+    if ($waitlist = self::getTodaysOneWeekWaitlist()) {
+      foreach ($waitlist as $entry) {
+        if ($uid = self::createUser($entry)) {
+          $created['success'][] = $entry;
+          self::removeUserFromWaitList($entry);
+        }
+        else {
+          $created['error'][] = $entry;
+        }
+      }
+    }
+
+    return $created;
+  }
+
+  /**
    * Removes a user from the waitlist.
    *
    * @param array $entry
@@ -134,11 +188,34 @@ class UserImportController {
    */
   private static function getTodaysWaitList() {
     $waitlist = [];
-    $today = new \DateTime();
+    $today = new DateTime();
     $connection = \Drupal::database();
     $query = $connection->select('user_import_waitlist', 'uiw')
       ->fields('uiw')
       ->condition('date', $today->format('Y-m-d'));
+    $result = $query->execute();
+    while ($entry = $result->fetchAssoc()) {
+      $entry['roles'] = explode(',', $entry['roles']);
+      $waitlist[] = $entry;
+    }
+
+    return $waitlist;
+  }
+
+  /**
+   * Gets one-week-from-today's waitlist of users to activate.
+   *
+   * @return array
+   *   All rows in the {user_import_waitlist} table with 1 week from today's date.
+   */
+  private static function getTodaysOneWeekWaitList() {
+    $waitlist = [];
+    $date = new DateTime();
+    $date->add(DateInterval::createFromDateString('1 week'));
+    $connection = \Drupal::database();
+    $query = $connection->select('user_import_waitlist', 'uiw')
+      ->fields('uiw')
+      ->condition('date', $date->format('Y-m-d'));
     $result = $query->execute();
     while ($entry = $result->fetchAssoc()) {
       $entry['roles'] = explode(',', $entry['roles']);
