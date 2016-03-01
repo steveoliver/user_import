@@ -50,7 +50,7 @@ class UserImportController {
           // Future date? Add to waitlist.
           $date = new \DateTime($values['date']);
           $days_diff = (int) $today->diff($date)->format('%r%d');
-          if ($days_diff > 0) {
+          if ($days_diff >= 7) {
             if ($id = self::addUserToWaitlist($values)) {
               $added[$id] = $values;
             }
