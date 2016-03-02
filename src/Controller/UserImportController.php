@@ -57,13 +57,13 @@ class UserImportController {
           }
           // Today or previous date? Create user now with training date.
           else {
-            if ($id = self::createUser($values)) {
+            if ($id = self::createUser($values, TRUE)) {
               $created[$id] = $values;
             }
           }
         }
         else {
-          if ($id = self::createUser($values)) {
+          if ($id = self::createUser($values, TRUE)) {
             $created[$id] = $values;
           }
         }
@@ -119,7 +119,7 @@ class UserImportController {
     ];
     if ($waitlist = self::getTodaysWaitlist()) {
       foreach ($waitlist as $entry) {
-        if ($uid = self::createUser($entry)) {
+        if ($uid = self::createUser($entry, TRUE)) {
           $created['success'][] = $entry;
           self::removeUserFromWaitList($entry);
         }
@@ -147,7 +147,7 @@ class UserImportController {
     ];
     if ($waitlist = self::getTodaysOneWeekWaitlist()) {
       foreach ($waitlist as $entry) {
-        if ($uid = self::createUser($entry)) {
+        if ($uid = self::createUser($entry, TRUE)) {
           $created['success'][] = $entry;
           self::removeUserFromWaitList($entry);
         }
@@ -293,14 +293,19 @@ class UserImportController {
    * @param $values
    *   Values prepared from prepareRow().
    *
-   * @return \Drupal\user\Entity\User
+   * @param $send_mail
+   *   bool TRUE if New account email message should be sent to $user.
    *
+   * @return \Drupal\user\Entity\User
    */
-  private static function createUser($values) {
+  private static function createUser($values, $send_mail = FALSE) {
     $values = self::prepareNewUser($values);
     $user = User::create($values);
     try {
       if ($user->save()) {
+        if ($send_mail && $user->getEmail()) {
+          _user_mail_notify('register_admin_created', $user);
+        }
         return $user->id();
       }
     }
