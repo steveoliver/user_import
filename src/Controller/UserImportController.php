@@ -34,6 +34,7 @@ class UserImportController {
    * @param array $config
    *   An array of configuration containing:
    *   - roles: an array of role ids to assign to the user
+   *   - notify: bool TRUE if user is to be notified of account creation
    *
    * @return array
    *   An multi-dimensional associative array with 'created' and 'added' arrays
@@ -57,13 +58,13 @@ class UserImportController {
           }
           // Today or previous date? Create user now with training date.
           else {
-            if ($id = self::createUser($values, TRUE)) {
+            if ($id = self::createUser($values)) {
               $created[$id] = $values;
             }
           }
         }
         else {
-          if ($id = self::createUser($values, TRUE)) {
+          if ($id = self::createUser($values)) {
             $created[$id] = $values;
           }
         }
@@ -91,13 +92,15 @@ class UserImportController {
       'last',
       'email',
       'date',
-      'roles'
+      'roles',
+      'notify'
     ], [
       $user['first'],
       $user['last'],
       $user['email'],
       $user['date'],
-      implode(',', $user['roles'])
+      implode(',', $user['roles']),
+      $user['notify']
     ])->execute()) {
       return $id;
     }
@@ -119,7 +122,7 @@ class UserImportController {
     ];
     if ($waitlist = self::getTodaysWaitlist()) {
       foreach ($waitlist as $entry) {
-        if ($uid = self::createUser($entry, TRUE)) {
+        if ($uid = self::createUser($entry)) {
           $created['success'][] = $entry;
           self::removeUserFromWaitList($entry);
         }
@@ -234,6 +237,7 @@ class UserImportController {
    * @param $config
    *   An array of configuration containing:
    *   - roles: an array of role ids to assign to the user
+   *   - notify: bool TRUE if user is to be notified of account creation.
    *
    * @return array
    *   User import values suitable for self::addUserToWaitList().
@@ -245,6 +249,7 @@ class UserImportController {
       'email' => $row[2],
       'date' => $row[3],
       'roles' => array_values($config['roles']),
+      'notify' => $config['notify']
     ];
   }
 
@@ -264,25 +269,28 @@ class UserImportController {
   /**
    * Prepares an array of new user values from a user waitlist entry.
    *
-   * @param array $user
+   * @param array $values
    *   An entry from the waitlist database table.
    *
    * @return array
    *   An array of user values suitable for User::save().
    */
-  private static function prepareNewUser($user) {
-    $preferred_username = strtolower($user['first'] . $user['last']);
+  private static function prepareNewUser($values) {
+    $preferred_username = strtolower($values['first'] . $values['last']);
     $i = 0;
     while (self::usernameExists($i ? $preferred_username . $i : $preferred_username)) {
       $i++;
     }
     $username = $i ? $preferred_username . $i : $preferred_username;
+    $user = [];
     $user['name'] = $username;
-    $user['mail'] = $user['email'];
-    $user['field_name_first'] = $user['first'];
-    $user['field_name_last'] = $user['last'];
-    $user['field_barre_member_training_date'] = $user['date'];
+    $user['mail'] = $values['email'];
+    $user['field_name_first'] = $values['first'];
+    $user['field_name_last'] = $values['last'];
+    $user['field_barre_member_training_date'] = $values['date'];
     $user['status'] = 1;
+    $user['notify'] = $values['notify'];
+    $user['roles'] = $values['roles'];
 
     return $user;
   }
@@ -293,17 +301,16 @@ class UserImportController {
    * @param $values
    *   Values prepared from prepareRow().
    *
-   * @param $send_mail
-   *   bool TRUE if New account email message should be sent to $user.
-   *
    * @return \Drupal\user\Entity\User
    */
-  private static function createUser($values, $send_mail = FALSE) {
+  private static function createUser($values) {
     $values = self::prepareNewUser($values);
+    $notify = $values['notify'];
+    unset($values['notify']);
     $user = User::create($values);
     try {
       if ($user->save()) {
-        if ($send_mail && $user->getEmail()) {
+        if ($notify && $user->getEmail()) {
           _user_mail_notify('register_admin_created', $user);
         }
         return $user->id();

@@ -4,6 +4,8 @@
  * User Import install/uninstall routines.
  */
 
+use Drupal\Core\Database\Database;
+
 /**
  * Implements hook_schema().
  *
@@ -57,6 +59,13 @@ function user_import_schema() {
         'default' => 0,
         'description' => 'Date of user account creation',
       ),
+      'notify' => array(
+        'type' => 'int',
+        'length' => 1,
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => 'Flag to notify user of account creation',
+      ),
     ),
     'primary key' => array('id'),
     // @todo: What to do to ensure users cannot be re-added.
@@ -72,4 +81,19 @@ function user_import_schema() {
   );
 
   return $schema;
+}
+
+/**
+ * Adds 'notify' column to 'user_import_waitlist' table.
+ */
+function user_import_update_8001() {
+  $spec = array(
+    'type' => 'int',
+    'length' => 1,
+    'not null' => TRUE,
+    'default' => 0,
+    'description' => 'Flag to notify user of account creation',
+  );
+  $schema = Database::getConnection()->schema();
+  $schema->addField('user_import_waitlist', 'notify', $spec);
 }

@@ -41,23 +41,23 @@ class UserImportForm extends FormBase {
    * @return array $form
    */
   public function buildForm(array $form, FormStateInterface $form_state) {
-    $form['#tree'] = TRUE;
-    $form['config'] = [
-      '#type' => 'fieldset',
-      '#title' => $this->t('Options')
-    ];
     $roles = user_role_names();
     unset($roles['anonymous']);
-    $form['config']['roles'] = [
+    $form['roles'] = [
       '#type' => 'checkboxes',
       '#title' => $this->t('Roles'),
       '#options' => $roles
     ];
     // Special handling for the inevitable "Authenticated user" role.
-    $form['config']['roles'][RoleInterface::AUTHENTICATED_ID] = array(
-      '#default_value' => TRUE,
+    $form['roles'][RoleInterface::AUTHENTICATED_ID] = array(
+      '#default_value' => RoleInterface::AUTHENTICATED_ID,
       '#disabled' => TRUE,
     );
+    $form['notify'] = [
+      '#type' => 'checkbox',
+      '#title' => $this->t('Notify user(s) of new account'),
+      '#default_value' => 1
+    ];
     $form['file'] = [
       '#type' => 'file',
       '#title' => 'CSV file upload',
@@ -82,7 +82,7 @@ class UserImportForm extends FormBase {
    */
   public function validateForm(array &$form, FormStateInterface $form_state) {
     // Validate options.
-    $roles = $form_state->getValue(['config', 'roles']);
+    $roles = $form_state->getValue(['roles']);
     $roles_selected = array_filter($roles, function($item) {
       return ($item);
     });
@@ -101,11 +101,12 @@ class UserImportForm extends FormBase {
    */
   public function submitForm(array &$form, FormStateInterface $form_state) {
     $file = $this->file[0];
-    $roles = $form_state->getValue(['config', 'roles']);
+    $roles = $form_state->getValue(['roles']);
     $config = [
       'roles' => array_filter($roles, function ($item) {
         return ($item);
-      })
+      }),
+      'notify' => $form_state->getValue(['notify'])
     ];
     $processed = UserImportController::processUpload($file, $config);
     if (!empty($processed['created']) || !empty($processed['added'])) {
