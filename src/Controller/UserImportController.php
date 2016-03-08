@@ -40,41 +40,7 @@ class UserImportController {
    *   An multi-dimensional associative array with 'created' and 'added' arrays
    *   of values from the filename keyed by new uid.
    */
-  public static function processUpload(File $file, array $config) {
-    $handle = fopen($file->destination, 'r');
-    $today = new \DateTime();
-    $added = [];
-    $created = [];
-    while ($row = fgetcsv($handle)) {
-      if ($values = self::prepareUploadRow($row, $config)) {
-        if (!empty($values['date'])) {
-          // Future date? Add to waitlist.
-          $date = new \DateTime($values['date']);
-          $days_diff = (int) $today->diff($date)->format('%r%d');
-          if ($days_diff >= 7) {
-            if ($id = self::addUserToWaitlist($values)) {
-              $added[$id] = $values;
-            }
-          }
-          // Today or previous date? Create user now with training date.
-          else {
-            if ($id = self::createUser($values)) {
-              $created[$id] = $values;
-            }
-          }
-        }
-        else {
-          if ($id = self::createUser($values)) {
-            $created[$id] = $values;
-          }
-        }
-      }
-    }
-
-    return [
-      'added' => $added,
-      'created' => $created
-    ];
+  public static function prepareUploadFile(File $file, array $config) {
   }
 
   /**
@@ -84,7 +50,7 @@ class UserImportController {
    *
    * @return $this|bool
    */
-  private function addUserToWaitlist($user) {
+  public static function addUserToWaitlist($user) {
     $connection = \Drupal::database();
     if ($id = $connection->insert('user_import_waitlist')
     ->fields([
@@ -303,7 +269,7 @@ class UserImportController {
    *
    * @return \Drupal\user\Entity\User
    */
-  private static function createUser($values) {
+  public static function createUser($values) {
     $values = self::prepareNewUser($values);
     $notify = $values['notify'];
     unset($values['notify']);

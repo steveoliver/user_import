@@ -8,9 +8,7 @@
 namespace Drupal\user_import\Form;
 
 use Drupal\Core\Form\FormBase;
-use Drupal\Core\Form\FormInterface;
 use Drupal\Core\Form\FormStateInterface;
-use Drupal\Core\Url;
 use Drupal\user\RoleInterface;
 use Drupal\user_import\Controller\UserImportController;
 
@@ -108,19 +106,101 @@ class UserImportForm extends FormBase {
       }),
       'notify' => $form_state->getValue(['notify'])
     ];
-    $processed = UserImportController::processUpload($file, $config);
-    if (!empty($processed['created']) || !empty($processed['added'])) {
-      if (!empty($processed['created'])) {
-        drupal_set_message(t('Successfully imported @count users.', ['@count' => count($processed['created'])]));
+
+    $batch = [
+      'title' => t('Importing'),
+      'operations' => [
+        [[$this, 'processUserImportBatch'], [$file, $config]]
+      ],
+      'finished' => [$this, 'finishUserImportBatch']
+    ];
+    batch_set($batch);
+  }
+
+  /**
+   * Processes a user import batch.
+   *
+   * @param $file
+   * @param $config
+   * @param $context
+   */
+  public function processUserImportBatch($file, $config, &$context) {
+    if (empty($context['sandbox'])) {
+      $context['sandbox']['progress'] = 0;
+
+      // Prepare the rows of data to process.
+      $context['sandbox']['rows'] = [];
+      $handle = fopen($file->destination, 'r');
+      while ($row = fgetcsv($handle)) {
+        $context['sandbox']['rows'][] = $row;
       }
-      if (!empty($processed['added'])) {
-        drupal_set_message(t('Successfully waitlisted @count users to be imported.', ['@count' => count($processed['added'])]));
+      $context['sandbox']['max'] = count($context['sandbox']['rows']);
+    }
+    if (empty($context['results'])) {
+      $context['results'] = [
+        'added' => [],
+        'created' => []
+      ];
+    }
+
+    $limit = 100;
+    $today = new \DateTime();
+
+    $current_batch = array_slice($context['sandbox']['rows'], $context['sandbox']['progress'], $limit);
+
+    foreach ($current_batch as $row) {
+      if ($values = UserImportController::prepareUploadRow($row, $config)) {
+        if (!empty($values['date'])) {
+          // Future date? Add to waitlist.
+          $date = new \DateTime($values['date']);
+          $days_diff = (int) $today->diff($date)->format('%r%d');
+          if ($days_diff >= 7) {
+            if ($id = UserImportController::addUserToWaitlist($values)) {
+              $context['results']['added'][] = $values['first'] . ' ' . $values['last'] . ' added to waitlist.';
+            }
+          }
+          // Today or previous date? Create user now with training date.
+          else {
+            if ($id = UserImportController::createUser($values)) {
+              $context['results']['created'][] = $values['first'] . ' ' . $values['last'] . ' created.';
+            }
+          }
+        }
+        else {
+          if ($id = UserImportController::createUser($values)) {
+            $context['results']['created'][] = $values['first'] . ' ' . $values['last'] . ' created';
+          }
+        }
+      }
+      $context['message'] = count($context['results']['created']) . ' users created, ' . count($context['results']['added']) . ' users waitlisted.';
+      $context['sandbox']['progress']++;
+    }
+    if ($context['sandbox']['progress'] != $context['sandbox']['max']) {
+      $context['finished'] = $context['sandbox']['progress'] / $context['sandbox']['max'];
+    }
+  }
+
+  /**
+   * Finishes a User Import batch.
+   *
+   * @param $success
+   * @param $results
+   * @param $operations
+   */
+  public function finishUserImportBatch($success, $results, $operations) {
+    if ($success && (!empty($results['created']) || !empty($results['added']))) {
+      if (!empty($results['created'])) {
+        $message = \Drupal::translation()->formatPlural(count($results['created']), 'One user created.', '@count users created.');
+      }
+      if (!empty($results['added'])) {
+        $message = \Drupal::translation()->formatPlural(count($results['added']), 'One user waitlisted.', '@count users waitlisted.');
       }
     }
     else {
-      drupal_set_message(t('No users imported.'));
+      $message = t('Finished with an error.');
     }
-    $form_state->setRedirectUrl(new Url('user_import.admin_upload'));
+
+    drupal_set_message($message);
   }
 
 }
