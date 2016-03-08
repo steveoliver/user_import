@@ -276,7 +276,7 @@ class UserImportController {
    *   An array of user values suitable for User::save().
    */
   private static function prepareNewUser($values) {
-    $preferred_username = strtolower($values['first'] . $values['last']);
+    $preferred_username = strtolower(preg_replace('/[^a-z]+|\s+/i', '', $values['first'] . $values['last']));
     $i = 0;
     while (self::usernameExists($i ? $preferred_username . $i : $preferred_username)) {
       $i++;
