@@ -188,19 +188,19 @@ class UserImportForm extends FormBase {
    * @param $operations
    */
   public function finishUserImportBatch($success, $results, $operations) {
-    if ($success && (!empty($results['created']) || !empty($results['added']))) {
-      if (!empty($results['created'])) {
-        $message = \Drupal::translation()->formatPlural(count($results['created']), 'One user created.', '@count users created.');
-      }
-      if (!empty($results['added'])) {
-        $message = \Drupal::translation()->formatPlural(count($results['added']), 'One user waitlisted.', '@count users waitlisted.');
+    if ($success) {
+      if (!empty($results['created']) || !empty($results['added'])) {
+        if (!empty($results['created'])) {
+          drupal_set_message(\Drupal::translation()->formatPlural(count($results['created']), 'One user created.', '@count users created.'));
+        }
+        if (!empty($results['added'])) {
+          drupal_set_message(\Drupal::translation()->formatPlural(count($results['added']), 'One user waitlisted.', '@count users waitlisted.'));
+        }
       }
     }
     else {
-      $message = t('Finished with an error.');
+      drupal_set_message(t('Finished with an error.'));
     }
-
-    drupal_set_message($message);
   }
 
 }
