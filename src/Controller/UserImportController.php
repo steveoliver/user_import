@@ -250,9 +250,9 @@ class UserImportController {
     $username = $i ? $preferred_username . $i : $preferred_username;
     $user = [];
     $user['name'] = $username;
-    $user['mail'] = $values['email'];
-    $user['field_name_first'] = $values['first'];
-    $user['field_name_last'] = $values['last'];
+    $user['mail'] = trim($values['email']);
+    $user['field_name_first'] = trim($values['first']);
+    $user['field_name_last'] = trim($values['last']);
     $user['field_barre_member_training_date'] = $values['date'];
     $user['status'] = 1;
     $user['notify'] = $values['notify'];
