@@ -213,7 +213,7 @@ class UserImportController {
       'first' => $row[0],
       'last' => $row[1],
       'email' => $row[2],
-      'date' => $row[3],
+      'date' => isset($row[3]) ? $row[3] : NULL,
       'roles' => array_values($config['roles']),
       'notify' => $config['notify']
     ];
