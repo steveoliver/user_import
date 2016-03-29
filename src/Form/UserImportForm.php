@@ -153,7 +153,7 @@ class UserImportForm extends FormBase {
         if (!empty($values['date'])) {
           // Future date? Add to waitlist.
           $date = new \DateTime($values['date']);
-          $days_diff = (int) $today->diff($date)->format('%r%d');
+          $days_diff = (int) $today->diff($date)->format('%r%a');
           if ($days_diff >= 7) {
             if ($id = UserImportController::addUserToWaitlist($values)) {
               $context['results']['added'][] = $values['first'] . ' ' . $values['last'] . ' added to waitlist.';
