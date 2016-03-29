@@ -1,0 +1,4 @@
+import users with user_import:
+  title: 'Import users with user_import module'
+  description: 'can import users using user_import module'
+  restrict access: TRUE
