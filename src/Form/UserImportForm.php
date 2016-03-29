@@ -144,30 +144,26 @@ class UserImportForm extends FormBase {
     }
 
     $limit = 100;
-    $today = new \DateTime();
-
     $current_batch = array_slice($context['sandbox']['rows'], $context['sandbox']['progress'], $limit);
 
     foreach ($current_batch as $row) {
       if ($values = UserImportController::prepareUploadRow($row, $config)) {
         if (!empty($values['date'])) {
-          // Future date? Add to waitlist.
-          $date = new \DateTime($values['date']);
-          $days_diff = (int) $today->diff($date)->format('%r%a');
-          if ($days_diff >= 7) {
-            if ($id = UserImportController::addUserToWaitlist($values)) {
+          // At least one week future date? Add to waitlist.
+          if (!UserImportController::shouldCreateUserNow($values)) {
+            if (UserImportController::addUserToWaitlist($values)) {
               $context['results']['added'][] = $values['first'] . ' ' . $values['last'] . ' added to waitlist.';
             }
           }
           // Today or previous date? Create user now with training date.
           else {
-            if ($id = UserImportController::createUser($values)) {
+            if (UserImportController::createUser($values)) {
               $context['results']['created'][] = $values['first'] . ' ' . $values['last'] . ' created.';
             }
           }
         }
         else {
-          if ($id = UserImportController::createUser($values)) {
+          if (UserImportController::createUser($values)) {
             $context['results']['created'][] = $values['first'] . ' ' . $values['last'] . ' created';
           }
         }

@@ -44,6 +44,17 @@ class UserImportController {
   }
 
   /**
+   * Returns TRUE if user should be created now (within 7 days of training date).
+   */
+  public static function shouldCreateUserNow($values) {
+    $today = new \DateTime();
+    $today->setTime(0,0,0);
+    $date = new \DateTime($values['date']);
+    $diff = $today->diff($date)->format('%r%a');
+    return 7 >= $diff;
+  }
+
+  /**
    * Adds a user import entry to the waitlist table.
    *
    * @param array $user
@@ -268,6 +279,7 @@ class UserImportController {
    *   Values prepared from prepareRow().
    *
    * @return \Drupal\user\Entity\User
+   *   or FALSE if user creation failed.
    */
   public static function createUser($values) {
     $values = self::prepareNewUser($values);
@@ -279,7 +291,7 @@ class UserImportController {
         if ($notify && $user->getEmail()) {
           _user_mail_notify('register_admin_created', $user);
         }
-        return $user->id();
+        return $user;
       }
     }
     catch (EntityStorageException $e) {
