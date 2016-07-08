@@ -44,37 +44,51 @@ class UserImportController {
     return $created;
   }
 
-  /**
-   * Prepares a new user from an upload row and current config.
-   *
-   * @param $row
-   *   A row from the currently uploaded file.
-   *
-   * @param $config
-   *   An array of configuration containing:
-   *   - roles: an array of role ids to assign to the user
-   *
-   * @return array
-   *   New user values suitable for User::create().
-   */
+    /**
+     * Prepares a new user from an upload row and current config.
+     *
+     * @param array $row
+     *   A row from the currently uploaded file.
+     *
+     * @param array $config
+     *   An array of configuration containing:
+     *   - roles: an array of role ids to assign to the user
+     * @return array New user values suitable for User::create().
+     * New user values suitable for User::create().
+     */
   public static function prepareRow(array $row, array $config) {
-    $preferred_username = (strtolower($row[0] . $row[1]));
-    $i = 0;
-    while (self::usernameExists($i ? $preferred_username . $i : $preferred_username)) {
-      $i++;
+    if(empty(array_filter($config['opt']))){
+        $preferred_username = (strtolower($row[1] . $row[2]));
+        $i = 0;
+        while (self::usernameExists($i ? $preferred_username . $i : $preferred_username)) {
+          $i++;
+        }
+        $username = $i ? $preferred_username . $i : $preferred_username;
+        return [
+          'uid' => NULL,
+          'name' => $username,
+          'field_name_first' => $row[1],
+          'field_name_last' => $row[2],
+          'pass' => NULL,
+          'mail' => $row[3],
+          'status' => 1,
+          'created' => REQUEST_TIME,
+          'roles' => array_values($config['roles']),
+        ];
+    }else{
+        $username = (strtolower($row[4]));
+        return [
+            'uid' => $row[0],
+            'name' => $username,
+            'field_name_first' => $row[1],
+            'field_name_last' => $row[2],
+            'pass' => $row[5],
+            'mail' => $row[3],
+            'status' => 1,
+            'created' => REQUEST_TIME,
+            'roles' => array_values($config['roles']),
+        ];
     }
-    $username = $i ? $preferred_username . $i : $preferred_username;
-    return [
-      'uid' => NULL,
-      'name' => $username,
-      'field_name_first' => $row[0],
-      'field_name_last' => $row[1],
-      'pass' => NULL,
-      'mail' => $row[2],
-      'status' => 1,
-      'created' => REQUEST_TIME,
-      'roles' => array_values($config['roles']),
-    ];
   }
 
   /**

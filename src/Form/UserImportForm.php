@@ -65,6 +65,19 @@ class UserImportForm extends FormBase {
         'file_validate_extensions' => ['csv']
       ]
     ];
+      // Includes uid, username and password?
+    $form['#tree'] = TRUE;
+    $form['OPT'] = [
+        '#type' => 'fieldset',
+        '#title' => $this->t('Extra Fields Included into CSV File')
+    ];
+    $fields = array("uid","username","password");
+    $form['OPT']['fields'] = [
+        '#type' => 'checkboxes',
+        '#title' => $this->t('fields'),
+        '#options' => $fields
+    ];
+      //end includes uid, username and password?
     $form['actions']['#type'] = 'actions';
     $form['actions']['submit'] = array(
       '#type' => 'submit',
@@ -105,7 +118,8 @@ class UserImportForm extends FormBase {
     $config = [
       'roles' => array_filter($roles, function($item) {
         return ($item);
-      })
+      }),
+      'opt' => $form_state->getValue(['OPT', 'fields'])
     ];
     if ($created = UserImportController::processUpload($file, $config)) {
       drupal_set_message(t('Successfully imported @count users.', ['@count' => count($created)]));
